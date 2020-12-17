@@ -2,8 +2,9 @@
 
 from typing import List, Dict, Tuple
 import re
+from functools import lru_cache
 
-with open('input16.example2') as file:
+with open('input16') as file:
     lines = [ s.strip() for s in file.readlines() if s.strip() != "" ]
 
 field_ranges: Dict[str, Tuple[Tuple[int, int], Tuple[int, int]]] = {}
@@ -51,6 +52,7 @@ for ticket in nearby_tickets:
 print(error_rate)
 print()
 
+@lru_cache(maxsize=10000)
 def ranges_work_for_all(i, ranges):
     value = my_ticket[i]
     if ((ranges[0][0] <= value <= ranges[0][1]) or
@@ -68,27 +70,33 @@ def ranges_work_for_all(i, ranges):
             return False
     return True
 
-def collect_field_assignments(remaining_fields: List[str], current_assignments: List[str]) -> List[List[str]]:
-    print(f"still need to assign {remaining_fields} - currently have {current_assignments}")
-    # print(remaining_fields)
-    if len(remaining_fields) == 0:
-        return [current_assignments]
-    assignments_to_return: List[List[str]] = []
-    # value_to_assign = my_ticket[len(my_ticket) - len(remaining_fields)]
-    for i, field in enumerate(remaining_fields):
-        ranges = field_ranges[field]
-        print(f" => checking that all at {i} fit into {field} {ranges}")
-        if ranges_work_for_all(i, ranges):
-            # found a match
-            new_current_assignments = list(current_assignments)
-            new_current_assignments.append(field)
-            new_remaining_fields = list(remaining_fields)
-            del new_remaining_fields[i]
-            assignments_to_return += collect_field_assignments(new_remaining_fields, new_current_assignments)
-        else:
-            print(f" => {field} does not match")
-            pass
-    return assignments_to_return
+def prn(s, depth):
+    print(' ' * depth + s)
 
-assignments = collect_field_assignments(list(field_ranges.keys()), [])
-print(assignments)
+def permute(left_ranges: List[str], used_ranges: List[str], depth=0):
+    # prn(f"still need to check {len(left_ranges)}", depth)
+    if len(left_ranges) == 0:
+        print(used_ranges)
+        return True
+    for i, left_range in enumerate(left_ranges):
+        # prn(f"trying {left_range}", depth)
+        if ranges_work_for_all(len(my_ticket) - len(left_ranges), field_ranges[left_range]):
+            # prn("looks promising", depth)
+            new_left_ranges = list(left_ranges)
+            del new_left_ranges[i]
+            new_used_ranges = list(used_ranges)
+            new_used_ranges.append(left_range)
+            if permute(new_left_ranges, new_used_ranges, depth+1):
+                return True
+        else:
+            # prn(f"it's not {left_range}", depth)
+            if depth < 4:
+                prn(f"discarded {left_range} w/ {used_ranges}", depth)
+            pass
+    return False
+
+result = permute(field_ranges.keys(), [])
+print(result)
+
+#  113,     53,     97,                 59,    139,     73,              89,               109,67,71,79,127,149,107,137,83,131,101,61,103
+# ['class', 'seat', 'arrival platform', 'row', 'price', 'arrival track', 'departure time', 'type', 'arrival location', 'train', 'departure platform', 'departure date', 'duration', 'departure track', 'route', 'arrival station', 'departure station', 'wagon', 'zone', 'departure location']
