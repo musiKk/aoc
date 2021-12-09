@@ -44,7 +44,6 @@ fn processEntry(entry: Entry) u16 {
     const d5 = getD5(&observationBitmasks, d2, d3);
     const d9 = getD9(&observationBitmasks, d4);
     const d6 = getD6(&observationBitmasks, d5, d9);
-    const d0 = getD0(&observationBitmasks, d6, d9);
 
     var result: u16 = 0;
     for (numberBitmasks) |numBm| {
@@ -61,15 +60,6 @@ fn processEntry(entry: Entry) u16 {
     }
 
     return result;
-}
-
-fn getD0(bitmasks: []u7, d6: u7, d9: u7) u7 {
-    for (bitmasks) |bm| {
-        if (getBitCount(bm) == 6 and bm != d6 and bm != d9) {
-            return bm;
-        }
-    }
-    unreachable;
 }
 
 fn getD6(bitmasks: []u7, d5: u7, d9: u7) u7 {
