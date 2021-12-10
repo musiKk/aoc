@@ -5,7 +5,7 @@ pub fn main() void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     part1();
-    part2(&arena.allocator);
+    part2(&arena.allocator());
 }
 
 fn part2(alloc: *std.mem.Allocator) void {
@@ -27,7 +27,7 @@ fn part2(alloc: *std.mem.Allocator) void {
 
 fn getBasinSize(y: u16, x: u16, height: u16, width: u16, alloc: *std.mem.Allocator) u32 {
     const Coord = struct { x: u16, y: u16 };
-    var coords = std.AutoHashMap(Coord, u8).init(alloc);
+    var coords = std.AutoHashMap(Coord, u8).init(alloc.*);
     var c = data[y][x];
     if (c == 9) {
         return 1;

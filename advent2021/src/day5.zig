@@ -8,13 +8,13 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
-    const coordinates = try read_input(&arena.allocator);
+    const coordinates = try read_input(&arena.allocator());
     defer coordinates.deinit();
-    try solve(false, coordinates, &arena.allocator);
+    try solve(false, coordinates, &arena.allocator());
 }
 
 fn solve(part1: bool, coordinatesList: std.ArrayList(Coordinates), alloc: *std.mem.Allocator) !void {
-    var map = std.AutoHashMap(Coordinate, u8).init(alloc);
+    var map = std.AutoHashMap(Coordinate, u8).init(alloc.*);
     for (coordinatesList.items) |coordinates| {
         if (part1 and coordinates.start.x != coordinates.end.x and coordinates.start.y != coordinates.end.y) {
             continue;
@@ -54,7 +54,7 @@ fn read_input(alloc: *std.mem.Allocator) !std.ArrayList(Coordinates) {
     var file = try std.fs.cwd().openFile("src/day5.input", .{});
     defer file.close();
 
-    var list = std.ArrayList(Coordinates).init(alloc);
+    var list = std.ArrayList(Coordinates).init(alloc.*);
 
     var buf_reader = std.io.bufferedReader(file.reader());
     var in_stream = buf_reader.reader();
