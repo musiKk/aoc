@@ -3,14 +3,26 @@ const input = @import("day10.input.zig").input;
 
 pub fn main() void {
     var sum: u32 = 0;
+    var incomplete_scores: [100]u64 = undefined;
+    var num_incomplete_scores: u16 = 0;
     for (input) |line| {
         const e = error_for_line(line);
         switch(e) {
             ResultType.corrupt => |v| sum += v,
-            ResultType.incomplete => |v| std.debug.print("{}\n", .{v}),
+            ResultType.incomplete => |v| {
+                incomplete_scores[num_incomplete_scores] = v;
+                num_incomplete_scores += 1;
+            },
         }
     }
     std.debug.print("error sum: {}\n", .{sum});
+
+    std.sort.sort(u64, incomplete_scores[0..num_incomplete_scores], {}, cmpFn);
+    std.debug.print("median completion score: {}\n", .{incomplete_scores[num_incomplete_scores/2]});
+}
+
+fn cmpFn(context: void, a: u64, b: u64) bool {
+    return std.sort.asc(u64)(context, a, b);
 }
 
 const ResultType = enum { incomplete, corrupt };
