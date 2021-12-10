@@ -3,22 +3,21 @@ const input = @import("day10.input.zig").input;
 
 pub fn main() void {
     var sum: u32 = 0;
-    var incomplete_scores: [100]u64 = undefined;
-    var num_incomplete_scores: u16 = 0;
+    var incomplete_scores = std.BoundedArray(u64, 100).init(0) catch unreachable;
+
     for (input) |line| {
         const e = error_for_line(line);
         switch(e) {
             ResultType.corrupt => |v| sum += v,
             ResultType.incomplete => |v| {
-                incomplete_scores[num_incomplete_scores] = v;
-                num_incomplete_scores += 1;
+                incomplete_scores.append(v) catch unreachable;
             },
         }
     }
     std.debug.print("error sum: {}\n", .{sum});
 
-    std.sort.sort(u64, incomplete_scores[0..num_incomplete_scores], {}, cmpFn);
-    std.debug.print("median completion score: {}\n", .{incomplete_scores[num_incomplete_scores/2]});
+    std.sort.sort(u64, incomplete_scores.slice(), {}, cmpFn);
+    std.debug.print("median completion score: {}\n", .{incomplete_scores.get(incomplete_scores.len/2)});
 }
 
 fn cmpFn(context: void, a: u64, b: u64) bool {
@@ -32,22 +31,19 @@ const Result = union(ResultType) {
 };
 
 fn error_for_line(line: []const u8) Result {
-    var stack: [100]u8 = undefined;
-    var stack_size: u8 = 0;
+    var stack = std.BoundedArray(u8, 100).init(0) catch unreachable;
 
     var err: ?u16 = null;
 
     for (line) |c| {
         if (c == '(' or c == '<' or c == '{' or c == '[') {
-            stack[stack_size] = c;
-            stack_size += 1;
+            stack.append(c) catch unreachable;
         } else {
-            if (stack_size == 0) {
+            if (stack.len == 0) {
                 unreachable;
             }
 
-            const p = stack[stack_size - 1];
-            stack_size -= 1;
+            const p = stack.pop();
 
             var e: ?u16 = null;
             if (c == ')' and p != '(') {
@@ -68,13 +64,13 @@ fn error_for_line(line: []const u8) Result {
 
     if (err != null) {
         return Result { .corrupt = err.? };
-    } else if (stack_size == 0) {
+    } else if (stack.len == 0) {
         return Result { .corrupt = 0 };
     } else {
         var score: u64 = 0;
-        while (stack_size > 0) : (stack_size -= 1) {
+        while (stack.len > 0) {
             var v: u3 = 0;
-            const p = stack[stack_size - 1];
+            const p = stack.pop();
             if (p == '(') {
                 v = 1;
             } else if (p == '[') {
