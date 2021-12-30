@@ -12,138 +12,78 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
-    // try part1(arena.allocator());
+    try part1(arena.allocator());
     try part2(arena.allocator());
 }
 
 fn part2(alloc: std.mem.Allocator) !void {
-    const Coord = struct { x: u32, y: u32, z: u32 };
+    var cubes = std.ArrayList(Step).init(alloc);
 
-    var xCoordsMap = std.AutoHashMap(i32, bool).init(alloc);
-    var yCoordsMap = std.AutoHashMap(i32, bool).init(alloc);
-    var zCoordsMap = std.AutoHashMap(i32, bool).init(alloc);
-
+    var stepCount: u16 = 0;
     for (input.steps) |step| {
-        try xCoordsMap.put(step.block.x.from, true);
-        try xCoordsMap.put(step.block.x.to, true);
-        try xCoordsMap.put(step.block.x.to + 1, true);
-        try yCoordsMap.put(step.block.y.from, true);
-        try yCoordsMap.put(step.block.y.to, true);
-        try yCoordsMap.put(step.block.y.to + 1, true);
-        try zCoordsMap.put(step.block.z.from, true);
-        try zCoordsMap.put(step.block.z.to, true);
-        try zCoordsMap.put(step.block.z.to + 1, true);
-    }
-    var xCoords = std.BoundedArray(i32, 5000).init(0) catch unreachable;
-    var yCoords = std.BoundedArray(i32, 5000).init(0) catch unreachable;
-    var zCoords = std.BoundedArray(i32, 5000).init(0) catch unreachable;
-    {
-        var xKeyIt = xCoordsMap.keyIterator();
-        while (xKeyIt.next()) |x| {
-            try xCoords.append(x.*);
+        stepCount += 1;
+        const previousCubeCount = cubes.items.len;
+
+        if (step.state == .on) {
+            try cubes.append(step);
         }
-        var yKeyIt = yCoordsMap.keyIterator();
-        while (yKeyIt.next()) |y| {
-            try yCoords.append(y.*);
-        }
-        var zKeyIt = zCoordsMap.keyIterator();
-        while (zKeyIt.next()) |x| {
-            try zCoords.append(x.*);
-        }
-    }
-
-    std.sort.sort(i32, xCoords.slice(), {}, comptime std.sort.asc(i32));
-    std.sort.sort(i32, yCoords.slice(), {}, comptime std.sort.asc(i32));
-    std.sort.sort(i32, zCoords.slice(), {}, comptime std.sort.asc(i32));
-
-    std.debug.print("x coords: {any}\n", .{xCoords.constSlice()});
-    std.debug.print("y coords: {any}\n", .{yCoords.constSlice()});
-    std.debug.print("z coords: {any}\n", .{zCoords.constSlice()});
-
-    std.debug.print("{} {} {}\n", .{xCoords.len, yCoords.len, zCoords.len});
-
-    // var xToIt: u32 = 0;
-    // for (xCoords.constSlice()) |xVal| {
-    //     try xToMap.put(xVal, xToIt);
-    //     try xBackMap.put(xToIt, xVal);
-    //     xToIt += 1;
-    // }
-    // var yToIt: u32 = 0;
-    // for (yCoords.constSlice()) |yVal| {
-    //     try yToMap.put(yVal, yToIt);
-    //     try yBackMap.put(yToIt, yVal);
-    //     yToIt += 1;
-    // }
-    // var zToIt: u32 = 0;
-    // for (zCoords.constSlice()) |zVal| {
-    //     try zToMap.put(zVal, zToIt);
-    //     try zBackMap.put(zToIt, zVal);
-    //     zToIt += 1;
-    // }
-
-    var stepIdx: u16 = 0;
-    var map = std.AutoHashMap(Coord, bool).init(alloc);
-    for (input.steps) |step| {
-        var mappedXFrom: u32 = @intCast(u32, std.mem.indexOfScalar(i32, xCoords.constSlice(), step.block.x.from).?);
-        var mappedXTo: u32 = @intCast(u32, std.mem.indexOfScalar(i32, xCoords.constSlice(), step.block.x.to).?);
-        var mappedYFrom: u32 = @intCast(u32, std.mem.indexOfScalar(i32, yCoords.constSlice(), step.block.y.from).?);
-        var mappedYTo: u32 = @intCast(u32, std.mem.indexOfScalar(i32, yCoords.constSlice(), step.block.y.to).?);
-        var mappedZFrom: u32 = @intCast(u32, std.mem.indexOfScalar(i32, zCoords.constSlice(), step.block.z.from).?);
-        var mappedZTo: u32 = @intCast(u32, std.mem.indexOfScalar(i32, zCoords.constSlice(), step.block.z.to).?);
-
-        std.debug.print("{} - turning {} cube {} {}, {} {}, {} {}\n", .{stepIdx, step.state,
-            mappedXFrom, mappedXTo,
-            mappedYFrom, mappedYTo,
-            mappedZFrom, mappedZTo,
-        });
-        stepIdx += 1;
-
-        var x: u32 = mappedXFrom;
-        while (x <= mappedXTo) : (x += 1) {
-            var y: u32 = mappedYFrom;
-            while (y <= mappedYTo) : (y += 1) {
-                var z: u32 = mappedZFrom;
-                while (z <= mappedZTo) : (z += 1) {
-                    const c = Coord { .x = x, .y = y, .z = z };
-                    // std.debug.print("turning {} coord {}\n", .{step.state, c});
-                    if (step.state == .on) {
-                        try map.put(c, true);
-                    } else {
-                        _ = map.remove(c);
-                    }
+        var i: u16 = 0;
+        while (i < previousCubeCount) : (i += 1) {
+            // const previousStep = cubes.constSlice()[i];
+            const previousStep = cubes.items[i];
+            const overlappingBlock = getBlockOverlap(previousStep.block, step.block);
+            if (overlappingBlock) |ob| {
+                if (step.state == .on and previousStep.state == .on) {
+                    // remove overlap
+                    try cubes.append(Step { .state = .off, .block = ob });
+                } else if (step.state == .off and previousStep.state == .off) {
+                    // account for previous double removal
+                    try cubes.append(Step { .state = .on, .block = ob });
+                } else if (step.state == .off and previousStep.state == .on) {
+                    try cubes.append(Step { .state = .off, .block = ob });
+                } else if (step.state == .on and previousStep.state == .off) {
+                    try cubes.append(Step { .state = .on, .block = ob });
                 }
             }
         }
-        // var c: u32 = 0;
-        // var valueIt = map.valueIterator();
-        // while (valueIt.next() != null) {
-        //     c += 1;
-        // }
-        // std.debug.print("step {} - {}\n", .{step.block, c});
     }
-    var c: u64 = 0;
-    var keyIt = map.keyIterator();
-    while (keyIt.next()) |coord| {
-        // const xOrig = xCoords.constSlice()[coord.*.x..coord.*.x + 2];
-        // const yOrig = yCoords.constSlice()[coord.*.y..coord.*.y + 2];
-        // const zOrig = zCoords.constSlice()[coord.*.z..coord.*.z + 2];
 
-        const x1: i32 = xCoords.constSlice()[coord.*.x];
-        const x2: i32 = xCoords.constSlice()[coord.*.x + 1];
-        const y1: i32 = yCoords.constSlice()[coord.*.y];
-        const y2: i32 = yCoords.constSlice()[coord.*.y + 1];
-        const z1: i32 = zCoords.constSlice()[coord.*.z];
-        const z2: i32 = zCoords.constSlice()[coord.*.z + 1];
-
-        const xd: u64 = std.math.absCast(x2 - x1);
-        const yd: u64 = std.math.absCast(y2 - y1);
-        const zd: u64 = std.math.absCast(z2 - z1);
-
-        // std.debug.print("on: {} -> translated back into {any} {any} {any}\n", .{coord.*, xOrig, yOrig, zOrig});
-        // c += std.math.absCast(xOrig[1] - xOrig[0]) * std.math.absCast(yOrig[1] - yOrig[0]) * std.math.absCast(zOrig[1] - zOrig[0]);
-        c += xd * yd * zd;
+    var sum: u64 = 0;
+    for (cubes.items) |step| {
+        const xd: u64 = @intCast(u64, step.block.x.to - step.block.x.from) + 1;
+        const yd: u64 = @intCast(u64, step.block.y.to - step.block.y.from) + 1;
+        const zd: u64 = @intCast(u64, step.block.z.to - step.block.z.from) + 1;
+        if (step.state == .on) {
+            sum += xd * yd * zd;
+        } else {
+            sum -= xd * yd * zd;
+        }
     }
-    std.debug.print("total count: {}\n", .{c});
+    std.debug.print("sum: {}\n", .{sum});
+}
+
+fn getBlockOverlap(block1: Block, block2: Block) ?Block {
+    const xOverlap = getRangeOverlap(block1.x, block2.x);
+    const yOverlap = getRangeOverlap(block1.y, block2.y);
+    const zOverlap = getRangeOverlap(block1.z, block2.z);
+    if (xOverlap) |xo| {
+        if (yOverlap) |yo| {
+            if (zOverlap) |zo| {
+                return Block { .x = xo, .y = yo, .z = zo };
+            }
+        }
+    }
+    return null;
+}
+
+fn getRangeOverlap(range1: Range, range2: Range) ?Range {
+    if (range1.from >= range2.from and range1.from <= range2.to) {
+        return Range { .from = range1.from, .to = std.math.min(range1.to, range2.to) };
+    } else if (range2.from >= range1.from and range2.from <= range1.to) {
+        return Range { .from = range2.from, .to = std.math.min(range1.to, range2.to) };
+    } else {
+        return null;
+    }
 }
 
 fn part1(alloc: std.mem.Allocator) !void {
