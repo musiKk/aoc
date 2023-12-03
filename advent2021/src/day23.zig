@@ -108,18 +108,36 @@ pub fn main() !void {
     // test input:
     // BCBD ADCA
 
+    const spots = Spots {
+        .l1 = &l1,
+        .l2 = &l2,
+        .r1 = &r1,
+        .r2 = &r2,
+        .m1 = &m1,
+        .m2 = &m2,
+        .m3 = &m3,
+        .a1 = &a1,
+        .a2 = &a2,
+        .b1 = &b1,
+        .b2 = &b2,
+        .c1 = &c1,
+        .c2 = &c2,
+        .d1 = &d1,
+        .d2 = &d2,
+    };
+
     var state: State = .{};
-    state.positions[a1.index] = B; state.b1 = &a1;
-    state.positions[b1.index] = C; state.c1 = &b1;
-    state.positions[c1.index] = B; state.b2 = &c1;
-    state.positions[d1.index] = D; state.d1 = &d1;
-    state.positions[a2.index] = A; state.a1 = &a2;
-    state.positions[b2.index] = D; state.d2 = &b2;
-    state.positions[c2.index] = C; state.c2 = &c2;
-    state.positions[d2.index] = A; state.a2 = &d2;
+    state.spots[a1.index] = B; state.amphiB1 = &a1;
+    state.spots[b1.index] = C; state.amphiC1 = &b1;
+    state.spots[c1.index] = B; state.amphiB2 = &c1;
+    state.spots[d1.index] = D; state.amphiD1 = &d1;
+    state.spots[a2.index] = A; state.amphiA1 = &a2;
+    state.spots[b2.index] = D; state.amphiD2 = &b2;
+    state.spots[c2.index] = C; state.amphiC2 = &c2;
+    state.spots[d2.index] = A; state.amphiA2 = &d2;
 
     // recurse(state);
-    const targetList = getPossibleTargets(state, state.b2);
+    const targetList = getPossibleTargets(state, spots, state.amphiB2);
     for (targetList.constSlice()) |target| {
         std.debug.print("{s}\n", .{target});
     }
@@ -129,19 +147,152 @@ pub fn main() !void {
 //     const aTargets = getPossibleTargets(state, state.a1);
 // }
 
-fn getPossibleTargets(state: State, node: *Node) TargetList {
+fn getPossibleTargets(state: State, spots: Spots, node: *Node) TargetList {
     var result = TargetList.init(0) catch unreachable;
 
     var seen = std.BoundedArray(*Node, 19).init(0) catch unreachable;
 
-    recursePossibleTargets(&state, .{ .node = node, .distance = 0 }, &result, &seen);
+    const nodeIsA = node == spots.a1 or node == spots.a2;
+    const nodeIsB = node == spots.b1 or node == spots.b2;
+    const nodeIsC = node == spots.c1 or node == spots.c2;
+    const nodeIsD = node == spots.d1 or node == spots.d2;
+    const nodeIsHome = nodeIsA or nodeIsB or nodeIsC or nodeIsD;
+
+    var allowedTargets = std.BoundedArray(*Node, 10).init(0) catch unreachable;
+    if (state.spots[node.index] == A) {
+        // looking at A amphi
+        if (node == spots.a2) {
+            // already home
+            return result;
+        } else if (node == spots.a1) {
+            if(state.spots[spots.a2.index] == A) {
+                // both home
+                return result;
+            } else {
+                // home but someone must get out first
+                allowedTargets.append(spots.l1) catch unreachable;
+                allowedTargets.append(spots.l2) catch unreachable;
+                allowedTargets.append(spots.r1) catch unreachable;
+                allowedTargets.append(spots.r2) catch unreachable;
+                allowedTargets.append(spots.m1) catch unreachable;
+                allowedTargets.append(spots.m2) catch unreachable;
+                allowedTargets.append(spots.m3) catch unreachable;
+            }
+        } else {
+            // currently out
+            if (state.spots[spots.a2.index] == A) {
+                // can only get second spot now
+                allowedTargets.append(spots.a1) catch unreachable;
+            } else {
+                // must get first spot first
+                allowedTargets.append(spots.a2) catch unreachable;
+            }
+        }
+    }
+    if (state.spots[node.index] == B) {
+        // looking at B amphi
+        if (node == spots.b2) {
+            // already home
+            return result;
+        } else if (node == spots.b1) {
+            if(state.spots[spots.b2.index] == B) {
+                // both home
+                return result;
+            } else {
+                // home but someone must get out first
+                allowedTargets.append(spots.l1) catch unreachable;
+                allowedTargets.append(spots.l2) catch unreachable;
+                allowedTargets.append(spots.r1) catch unreachable;
+                allowedTargets.append(spots.r2) catch unreachable;
+                allowedTargets.append(spots.m1) catch unreachable;
+                allowedTargets.append(spots.m2) catch unreachable;
+                allowedTargets.append(spots.m3) catch unreachable;
+            }
+        } else {
+            // currently out
+            if (state.spots[spots.b2.index] == B) {
+                // can only get second spot now
+                allowedTargets.append(spots.b1) catch unreachable;
+            } else {
+                // must get first spot first
+                allowedTargets.append(spots.b2) catch unreachable;
+            }
+        }
+    }
+    if (state.spots[node.index] == A) {
+        // looking at A amphi
+        if (node == spots.a2) {
+            // already home
+            return result;
+        } else if (node == spots.a1) {
+            if(state.spots[spots.a2.index] == A) {
+                // both home
+                return result;
+            } else {
+                // home but someone must get out first
+                allowedTargets.append(spots.l1) catch unreachable;
+                allowedTargets.append(spots.l2) catch unreachable;
+                allowedTargets.append(spots.r1) catch unreachable;
+                allowedTargets.append(spots.r2) catch unreachable;
+                allowedTargets.append(spots.m1) catch unreachable;
+                allowedTargets.append(spots.m2) catch unreachable;
+                allowedTargets.append(spots.m3) catch unreachable;
+            }
+        } else {
+            // currently out
+            if (state.spots[spots.a2.index] == A) {
+                // can only get second spot now
+                allowedTargets.append(spots.a1) catch unreachable;
+            } else {
+                // must get first spot first
+                allowedTargets.append(spots.a2) catch unreachable;
+            }
+        }
+    }
+    if (state.spots[node.index] == A) {
+        // looking at A amphi
+        if (node == spots.a2) {
+            // already home
+            return result;
+        } else if (node == spots.a1) {
+            if(state.spots[spots.a2.index] == A) {
+                // both home
+                return result;
+            } else {
+                // home but someone must get out first
+                allowedTargets.append(spots.l1) catch unreachable;
+                allowedTargets.append(spots.l2) catch unreachable;
+                allowedTargets.append(spots.r1) catch unreachable;
+                allowedTargets.append(spots.r2) catch unreachable;
+                allowedTargets.append(spots.m1) catch unreachable;
+                allowedTargets.append(spots.m2) catch unreachable;
+                allowedTargets.append(spots.m3) catch unreachable;
+            }
+        } else {
+            // currently out
+            if (state.spots[spots.a2.index] == A) {
+                // can only get second spot now
+                allowedTargets.append(spots.a1) catch unreachable;
+            } else {
+                // must get first spot first
+                allowedTargets.append(spots.a2) catch unreachable;
+            }
+        }
+    }
+
+    recursePossibleTargets(&state, .{ .node = node, .distance = 0 }, &result, allowedTargets.constSlice(), &seen);
 
     return result;
 }
 
 const PAD = "                         ";
 
-fn recursePossibleTargets(state: *const State, current: NodeWithDistance, result: *TargetList, seen: *std.BoundedArray(*Node, 19)) void {
+fn recursePossibleTargets(
+        state: *const State,
+        current: NodeWithDistance,
+        result: *TargetList,
+        allowedTargets: []const Node,
+        seen: *std.BoundedArray(*Node, 19)) void {
     // std.debug.print("{s}currently at {s}\n", .{PAD[0..current.distance * 2], current});
     for (current.node.neighbors.constSlice()) |neighbor| {
         if (std.mem.indexOfScalar(*Node, seen.constSlice(), neighbor) != null) {
@@ -151,7 +302,7 @@ fn recursePossibleTargets(state: *const State, current: NodeWithDistance, result
         seen.append(neighbor) catch unreachable;
 
         // std.debug.print("{s} - looking at neighbor {s} => {s}\n", .{PAD[0..current.distance * 2], current.node, neighbor});
-        if (state.positions[neighbor.index] != 0) {
+        if (state.spots[neighbor.index] != 0) {
             // neighbor already occupied
             continue;
         }
@@ -173,16 +324,34 @@ const NodeWithDistance = struct {
 };
 
 const State = struct {
-    positions: [19]u8 = [_]u8 {0} ** 19,
-    a1: *Node = undefined,
-    a2: *Node = undefined,
-    b1: *Node = undefined,
-    b2: *Node = undefined,
-    c1: *Node = undefined,
-    c2: *Node = undefined,
-    d1: *Node = undefined,
-    d2: *Node = undefined,
+    spots: [19]u8 = [_]u8 {0} ** 19,
+    amphiA1: *Node = undefined,
+    amphiA2: *Node = undefined,
+    amphiB1: *Node = undefined,
+    amphiB2: *Node = undefined,
+    amphiC1: *Node = undefined,
+    amphiC2: *Node = undefined,
+    amphiD1: *Node = undefined,
+    amphiD2: *Node = undefined,
 };
+
+const Spots = struct {
+    l1: *Node,
+    l2: *Node,
+    r1: *Node,
+    r2: *Node,
+    m1: *Node,
+    m2: *Node,
+    m3: *Node,
+    a1: *Node,
+    a2: *Node,
+    b1: *Node,
+    b2: *Node,
+    c1: *Node,
+    c2: *Node,
+    d1: *Node,
+    d2: *Node,
+}
 
 fn neighborize(n1: *Node, n2: *Node) !void {
     try n1.*.neighbors.append(n2);
