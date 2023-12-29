@@ -2,25 +2,100 @@ package com.github.musiKk;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class Day24 {
 
     public static void main(String[] args) throws Exception {
-        Path p = Path.of("input24.txt");
+        Path p = Path.of("input24.example");
         List<Hailstone> hailstones;
         try (var s = Files.lines(p)) {
             hailstones = s.map(Hailstone::parse).toList();
         }
 
-        part1(hailstones);
+        // part1(hailstones);
+        part2(hailstones);
+        // part2(hailstones.stream().limit(10).toList());
+        // var h1 = new Hailstone(new Coord(19, 13, 30), 1, 0, -4);
+        // var h2 = new Hailstone(new Coord(18, 19, 22), 2, -2, -4);
+        // var h3 = new Hailstone(new Coord(20, 25, 34), 1, -3, -6);
+        // System.err.println(Formula.of(h1).crossingXY(Formula.of(h2)));
+        // System.err.println(Formula.of(h1).crossingXY(Formula.of(h3)));
+        // System.err.println(Formula.of(h2).crossingXY(Formula.of(h3)));
     }
 
     static void part2(List<Hailstone> hailstones) {
+        // int min = -10; int max = 10;
+        int min = -500; int max = 500;
+        List<CandSolution> xySolutions = new ArrayList<>();
+        for (int candDx = min; candDx <= max; candDx++) {
+            for (int candDy = min; candDy <= max; candDy++) {
+                int dx = candDx;
+                int dy = candDy;
 
+                var adjustedHailstones = hailstones.stream()
+                        .map(h -> new Hailstone(h.coord, h.dx - dx, h.dy - dy, h.dz))
+                        .toList();
+
+                var collisionPoint = getCollision(adjustedHailstones);
+                if (collisionPoint.isPresent())
+                    xySolutions.add(new CandSolution(collisionPoint.get(), dx));
+            }
+        }
+        System.err.println(xySolutions);
+        // for (int candDz = min; candDz <= max; candDz++) {
+        //     for (var xySolution : xySolutions) {
+        //         int dx = xySolution.dx;
+        //         int dz = candDz;
+        //         var adjustedHailstones = hailstones.stream()
+        //                 .map(h ->  new Hailstone(new Coord(h.coord.x, h.coord.z, 0), h.dx - dx, h.dz - dz, 0))
+        //                 .toList();
+        //         var collisionPoint = getCollision(adjustedHailstones);
+        //         if (!collisionPoint.isPresent()) continue;
+
+        //         System.err.println("solution:");
+        //         System.err.println(xySolution);
+        //         System.err.println(collisionPoint);
+        //     }
+        // }
     }
+
+    static Optional<Coord> getCollision(List<Hailstone> hailstones) {
+        var formulas = hailstones.stream().map(Formula::of).toList();
+
+        Coord collisionPoint = null;
+        Map<Coord, Integer> collisions = new HashMap<>();
+
+        for (int i = 0; i < hailstones.size() - 1; i++) {
+            var f1 = formulas.get(i);
+            for (int j = i + 1; j < hailstones.size(); j++) {
+                var f2 = formulas.get(j);
+                if (f1.slope == f2.slope) {
+                    continue;
+                }
+                var newCollision = f1.crossingXY(f2);
+                if (Double.isNaN(newCollision.x) && Double.isNaN(newCollision.y)) {
+                    System.err.printf("nan (%s, %s)%n", f1, f2);
+                    continue;
+                }
+                if (collisionPoint == null) {
+                    collisionPoint = newCollision;
+                    continue;
+                }
+                if (!newCollision.almostEqual(collisionPoint)) {
+                    // System.err.println("next collision is " + newCollision);
+                    return Optional.empty();
+                }
+            }
+        }
+        return Optional.ofNullable(collisionPoint);
+    }
+
+    record CandSolution(Coord collision, int dx) {}
 
     static void part1(List<Hailstone> hailstones) {
         Map<Hailstone, Formula> formulaMap = new HashMap<>();
@@ -49,7 +124,7 @@ public class Day24 {
     static boolean collidesXYInWindow(Hailstone h1, Hailstone h2, Map<Hailstone, Formula> m) {
         var f1 = m.get(h1);
         var f2 = m.get(h2);
-        var crossing = f1.crossing(f2);
+        var crossing = f1.crossingXY(f2);
         boolean crosses = crossing.x >= MIN && crossing.x <= MAX && crossing.y >= MIN && crossing.y <= MAX;
         boolean crossesInFutureH1 = (crossing.x - h1.coord.x) / h1.dx >= 0;
         boolean crossesInFutureH2 = (crossing.x - h2.coord.x) / h2.dx >= 0;
@@ -60,6 +135,8 @@ public class Day24 {
         return crosses && crossesInFutureH1 && crossesInFutureH2;
     }
 
+    static final double EPS = 0.000001;
+
     record Coord(double x, double y, double z) {
         static Coord parse(String line) {
             var parts = line.split(",");
@@ -69,10 +146,15 @@ public class Day24 {
                 Double.parseDouble(parts[2].strip())
             );
         }
+        boolean almostEqual(Coord other) {
+            return Math.abs(x - other.x) < EPS
+                && Math.abs(y - other.y) < EPS
+                && Math.abs(z - other.z) < EPS;
+        }
     }
 
     record Formula(double slope, double y0) {
-        Coord crossing(Formula other) {
+        Coord crossingXY(Formula other) {
             double xCross = (other.y0 - this.y0) / (this.slope - other.slope);
             double yCross = xCross * slope + y0;
             return new Coord(xCross, yCross, 0);
@@ -81,6 +163,10 @@ public class Day24 {
             double slope = h.dy / h.dx;
             double y0 = h.coord.y - (h.coord.x / h.dx) * h.dy;
             return new Formula(slope, y0);
+        }
+        boolean almostEqual(Formula other) {
+            return Math.abs(slope - other.slope) < EPS
+                && Math.abs(y0 - other.y0) < EPS;
         }
     }
 
