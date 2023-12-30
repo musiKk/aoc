@@ -4,14 +4,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class Day22 {
 
     public static void main(String[] args) throws Exception {
-        Path p = Path.of("input22.example");
+        Path p = Path.of("input22.txt");
         List<Brick> bricks;
         try (var s = Files.lines(p)) {
             bricks = new ArrayList<>(s.map(Brick::parse).toList());
@@ -21,35 +24,66 @@ public class Day22 {
     }
 
     static void part1(List<Brick> bricks) {
-        bricks.sort(Comparator.<Brick>comparingInt(c -> Math.max(c.start.z, c.end.z)).reversed());
-        Set<Cube> supportingCubes = new HashSet<>();
-        int safeToDisintegrate = 0;
+        bricks.sort(Comparator.<Brick>comparingInt(Brick::minZ));
+        Map<XY, Brick> coordToMaxBrick = new HashMap<>();
+
+        Map<Brick, List<Brick>> supports = new HashMap<>();
+        Set<Brick> removable = new HashSet<>();
+        List<Brick> updatedBricks = new ArrayList<>();
         for (Brick brick : bricks) {
-            var brickSupportsSomething = false;
-            var brickCubes = brick.allCubes();
+            // System.err.println("looking at brick " + brick);
+            var cubes = brick.allCubes();
 
-            Set<Cube> xyCubes = new HashSet<>();
-            for (var brickCube : brickCubes) {
-                var xyCube = new Cube(brickCube.x, brickCube.y, 0);
-                xyCubes.add(xyCube);
+            Set<XY> footprint = new HashSet<>(cubes.stream().map(XY::of).toList());
+            var bricksOverlappingFootprint = new HashSet<>(footprint.stream()
+                    .<Brick>flatMap(xy -> Optional.ofNullable(coordToMaxBrick.get(xy)).stream())
+                    .toList());
+
+            var supportingHeight = bricksOverlappingFootprint.stream().mapToInt(Brick::maxZ).max().orElse(0);
+            var supportingBricks = new HashSet<>(bricksOverlappingFootprint.stream().filter(b -> b.maxZ() == supportingHeight).toList());
+
+            int sinkBy = brick.minZ() - supportingHeight - 1;
+            if (supportingBricks.size() > 1) {
+                removable.addAll(supportingBricks);
             }
 
-            for (var xyCube : xyCubes) {
-                System.err.println("checking " + xyCube);
-                if (supportingCubes.contains(xyCube)) {
-                    brickSupportsSomething = true;
-                }
-                supportingCubes.add(xyCube);
+            var sunkenBrick = brick.sinkBy(sinkBy);
+            for (var supportingBrick : supportingBricks) {
+                supports.computeIfAbsent(supportingBrick, __ -> new ArrayList<>()).add(sunkenBrick);
             }
+            for (var xy : footprint) {
+                coordToMaxBrick.put(xy, sunkenBrick);
+            }
+            updatedBricks.add(sunkenBrick);
+        }
 
-            if (!brickSupportsSomething) {
-                System.err.println(brick + " is safe to disintegrate");
-                safeToDisintegrate++;
-            } else {
-                System.err.println(brick + " is NOT safe to disintegrate");
+        for (var updatedBrick : updatedBricks) {
+            if (!supports.containsKey(updatedBrick)) {
+                removable.add(updatedBrick);
             }
         }
-        System.err.println(safeToDisintegrate);
+
+        var bricksSupportingNothing = supports.entrySet().stream().filter(e -> e.getValue().isEmpty()).map(Map.Entry::getKey).toList();
+        removable.addAll(bricksSupportingNothing);
+
+        Map<Brick, List<Brick>> supportedBy = new HashMap<>();
+        for (var e : supports.entrySet()) {
+            e.getValue().stream().forEach(b -> supportedBy.computeIfAbsent(b, __ -> new ArrayList<>()).add(e.getKey()));
+        }
+        for (var e : supportedBy.entrySet()) {
+            if (e.getValue().size() == 1) {
+                // remove bricks that are the only support for another brick
+                removable.remove(e.getValue().get(0));
+            }
+        }
+        // System.err.println(removable);
+        System.err.println(removable.size());
+    }
+
+    record XY(int x, int y) {
+        static XY of(Cube c) {
+            return new XY(c.x, c.y);
+        }
     }
 
     record Cube(int x, int y, int z) {
@@ -61,14 +95,28 @@ public class Day22 {
                 Integer.parseInt(parts[2])
             );
         }
+        Cube sinkBy(int diff) {
+            return new Cube(x, y, z - diff);
+        }
     }
-    record Brick(Cube start, Cube end) {
+    static char CURRENT_CUBE_NAME = 'A';
+    record Brick(String name, Cube start, Cube end) {
         static Brick parse(String input) {
             var parts = input.split("~");
             return new Brick(
+                Character.toString(CURRENT_CUBE_NAME++),
                 Cube.parse(parts[0]),
                 Cube.parse(parts[1])
             );
+        }
+        Brick sinkBy(int diff) {
+            return new Brick(name, start.sinkBy(diff), end.sinkBy(diff));
+        }
+        int minZ() {
+            return Math.min(start.z, end.z);
+        }
+        int maxZ() {
+            return Math.max(start.z, end.z);
         }
         List<Cube> allCubes() {
             int xMin = Math.min(start.x, end.x);
