@@ -20,10 +20,51 @@ public class Day22 {
             bricks = new ArrayList<>(s.map(Brick::parse).toList());
         }
 
-        part1(bricks);
+        var settledBricks = part1(bricks);
+        part2(settledBricks);
     }
 
-    static void part1(List<Brick> bricks) {
+    static void part2(List<Brick> bricks) {
+        int totalFallen = 0;
+        for (int i = 0; i < bricks.size(); i++) {
+            List<Brick> bricksWithRemoved = new ArrayList<>(bricks);
+            bricksWithRemoved.remove(i);
+
+            int fallenBricks = settleBricks(bricksWithRemoved);
+            totalFallen += fallenBricks;
+            System.err.printf("removing %d caused %d to fall (now %d)%n", i, fallenBricks, totalFallen);
+        }
+        System.err.println(totalFallen);
+    }
+
+    static int settleBricks(List<Brick> bricks) {
+        int settlingBricks = 0;
+        Map<XY, Brick> coordToMaxBrick = new HashMap<>();
+        for (Brick brick : bricks) {
+            // System.err.println("looking at brick " + brick);
+            var cubes = brick.allCubes();
+
+            Set<XY> footprint = new HashSet<>(cubes.stream().map(XY::of).toList());
+            var bricksOverlappingFootprint = new HashSet<>(footprint.stream()
+                    .<Brick>flatMap(xy -> Optional.ofNullable(coordToMaxBrick.get(xy)).stream())
+                    .toList());
+
+            var supportingHeight = bricksOverlappingFootprint.stream().mapToInt(Brick::maxZ).max().orElse(0);
+
+            int sinkBy = brick.minZ() - supportingHeight - 1;
+            if (sinkBy > 0) {
+                settlingBricks++;
+            }
+
+            var sunkenBrick = brick.sinkBy(sinkBy);
+            for (var xy : footprint) {
+                coordToMaxBrick.put(xy, sunkenBrick);
+            }
+        }
+        return settlingBricks;
+    }
+
+    static List<Brick> part1(List<Brick> bricks) {
         bricks.sort(Comparator.<Brick>comparingInt(Brick::minZ));
         Map<XY, Brick> coordToMaxBrick = new HashMap<>();
 
@@ -78,6 +119,7 @@ public class Day22 {
         }
         // System.err.println(removable);
         System.err.println(removable.size());
+        return updatedBricks;
     }
 
     record XY(int x, int y) {
