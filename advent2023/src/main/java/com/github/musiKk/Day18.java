@@ -15,7 +15,7 @@ import java.util.Set;
 public class Day18 {
 
     public static void main(String[] args) throws Exception {
-        Path p = Path.of("input18.example");
+        Path p = Path.of("input18.txt");
 
         List<Instruction> instructions = new ArrayList<>();
         List<Instruction> instructionsPart2 = new ArrayList<>();
@@ -30,7 +30,40 @@ public class Day18 {
         // System.err.println(instructionsPart2);
 
         // part1(instructions);
-        part2(instructionsPart2);
+        // part2(instructions);
+        // part2(instructionsPart2);
+        part2try2(instructions);
+        part2try2(instructionsPart2);
+    }
+
+    static void part2try2(List<Instruction> instructions) {
+        int row = 0;
+        int col = 0;
+
+        int dug = 0;
+        List<Coord> coords = new ArrayList<>();
+        for (var instruction : instructions) {
+            row = instruction.dir.newRow(row, instruction.len);
+            col = instruction.dir.newCol(col, instruction.len);
+            coords.add(Coord.of(row, col));
+            dug += instruction.len;
+        }
+
+        long sum = 0;
+        for (int i = 0; i < coords.size(); i++) {
+            var c1 = coords.get(i);
+            var c2 = coords.get((i + 1) % coords.size());
+
+            sum += ((long) c1.col * c2.row - (long) c1.row * c2.col);
+        }
+        sum = Math.abs(sum);
+
+        long area = sum / 2;
+        System.err.println("area: " + area);
+        System.err.println("trench: " + dug);
+        System.err.println(dug / 2 + 1);
+
+        System.err.println(area + (dug / 2 + 1));
     }
 
     static void part2(List<Instruction> instructions) {
@@ -63,11 +96,13 @@ public class Day18 {
                 verticals.add(line);
             prev = next;
 
-            maxRow = Math.max(maxRow, row);
-            minRow = Math.min(minRow, row);
-            maxCol = Math.max(maxCol, col);
-            minCol = Math.min(minCol, col);
-            dug += len;
+            maxRow = Math.max(maxRow, row + 1);
+            minRow = Math.min(minRow, row - 1);
+            maxCol = Math.max(maxCol, col + 1);
+            minCol = Math.min(minCol, col - 1);
+            dug += len - 1;
+
+            System.err.println("ending up at " + row + ", " + col);
         }
 
         horizontals.sort(Comparator.comparingInt(Line::startRow).thenComparingInt(Line::startCol));
@@ -98,26 +133,63 @@ public class Day18 {
 
         long inside = 0;
         for (int r = minRow; r <= maxRow; r++) {
-            int absRow = r - minRow;
-
+            long prevInside = inside;
             int lastCol = minCol;
             boolean in = false;
+            Integer horizontalStart = null;
+            Dir lastVerticalDir = null;
             for (Line colLine : verticals) {
-                if (colLine.start.row >= r || colLine.end.row < r) continue;
-                if (in) {
-                    inside += colLine.start.col - lastCol - 1;
-                    in = false;
+                if (r < colLine.start.row) continue;
+                if (r > colLine.end.row) continue;
+
+                if (r == colLine.start.row || r == colLine.end.row) {
+                    if (horizontalStart == null) {
+                        horizontalStart = colLine.start.col;
+                        if (r == colLine.start.row) {
+                            lastVerticalDir = Dir.D;
+                        } else {
+                            lastVerticalDir = Dir.U;
+                        }
+                    } else {
+                        inside += (colLine.start.col - horizontalStart) + 1;
+                        Dir thisVerticalDir;
+                        if (r == colLine.start.row) {
+                            thisVerticalDir = Dir.D;
+                        } else {
+                            thisVerticalDir = Dir.U;
+                        }
+                        if (thisVerticalDir != lastVerticalDir) {
+                            in = !in;
+                            if (in) {
+                                lastCol = colLine.start.col + 1;
+                            } else {
+                                inside += horizontalStart - lastCol;
+                            }
+                        }
+                        horizontalStart = null;
+                    }
                 } else {
-                    lastCol = colLine.start.col + 1;
-                    in = true;
+                    if (in) {
+                        inside += (colLine.start.col - lastCol) + 1;
+                        in = false;
+                    } else {
+                        lastCol = colLine.start.col;
+                        in = true;
+                    }
                 }
+
             }
-            if (absRow % 10_000 == 0) {
-                System.err.printf("%-5d: %.2f - %d%n", absRow, ((double) absRow / totalRows) * 100, inside);
-            }
-            // try { Thread.sleep(1); } catch (Exception e) {}
+
+            int absRow = r - minRow;
+            // if (absRow % 10_000 == 0) {
+                System.err.printf("%2.2f%% - %d%n", ((double) absRow / totalRows) * 100, inside);
+                System.err.printf("%d added: %d%n", r, (inside - prevInside));
+            // }
+            try { Thread.sleep(1); } catch (Exception e) {}
             // if (absRow == 100) break;
         }
+        System.err.println("inside: " + inside);
+        System.err.println("dug:    " + dug);
         System.err.println(inside + dug);
 
     }
